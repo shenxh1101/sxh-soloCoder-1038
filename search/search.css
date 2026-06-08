@@ -105,6 +105,47 @@ body {
   letter-spacing: 0.5px;
 }
 
+.topics-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.topic-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  width: 100%;
+}
+
+.topic-filter-item:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.topic-filter-item.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-color: transparent;
+}
+
+.topic-filter-item .topic-count {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  margin-left: auto;
+}
+
 .tags-filter {
   display: flex;
   flex-wrap: wrap;
@@ -500,6 +541,15 @@ body {
   padding: 2px 8px;
   background: #e3f2fd;
   color: #1565c0;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.clip-card-topic {
+  padding: 2px 8px;
+  background: #f3e5f5;
+  color: #7b1fa2;
   border-radius: 10px;
   font-size: 11px;
   font-weight: 500;

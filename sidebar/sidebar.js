@@ -92,8 +92,8 @@ function renderTags() {
   const tagsList = document.getElementById('tags-list');
   tagsList.innerHTML = selectedTags.map(tag => `
     <span class="tag-item">
-      ${tag}
-      <button class="remove-tag" data-tag="${tag}">×</button>
+      ${escapeHtml(tag)}
+      <button class="remove-tag" data-tag="${escapeHtml(tag)}">×</button>
     </span>
   `).join('');
   
@@ -216,6 +216,10 @@ async function saveClip() {
       
       showToast('保存成功！', 'success');
       resetClipForm();
+      
+      if (currentTab === 'recent') {
+        loadRecentClips();
+      }
     } else {
       showToast('保存失败', 'error');
     }
@@ -256,16 +260,47 @@ async function loadTags(searchTerm = '') {
     let tags = tagsResponse.tags;
     const clips = clipsResponse.clips;
     
-    if (searchTerm) {
-      tags = tags.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    }
-    
+    const topicCounts = {};
     const tagCounts = {};
     clips.forEach(clip => {
+      if (clip.topic) {
+        topicCounts[clip.topic] = (topicCounts[clip.topic] || 0) + 1;
+      }
       clip.tags.forEach(tag => {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
       });
     });
+    
+    const topicsCloud = document.getElementById('topics-cloud');
+    const topics = Object.keys(topicCounts).sort();
+    
+    if (topics.length === 0) {
+      topicsCloud.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/>
+          </svg>
+          <p>暂无主题，剪藏时选择主题归档</p>
+        </div>
+      `;
+    } else {
+      topicsCloud.innerHTML = topics.map(topic => `
+        <div class="topic-cloud-item" data-topic="${escapeHtml(topic)}">
+          📁 ${escapeHtml(topic)}
+          <span class="topic-count">${topicCounts[topic]}</span>
+        </div>
+      `).join('');
+      
+      topicsCloud.querySelectorAll('.topic-cloud-item').forEach(item => {
+        item.addEventListener('click', () => {
+          showTopicClips(item.dataset.topic, clips);
+        });
+      });
+    }
+    
+    if (searchTerm) {
+      tags = tags.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
     
     const tagsCloud = document.getElementById('tags-cloud');
     if (tags.length === 0) {
@@ -278,24 +313,46 @@ async function loadTags(searchTerm = '') {
           <p>暂无标签，剪藏内容时添加标签</p>
         </div>
       `;
-      return;
-    }
-    
-    tagsCloud.innerHTML = tags.map(tag => `
-      <div class="tag-cloud-item" data-tag="${tag.name}" style="background-color: ${tag.color}">
-        ${tag.name}
-        <span class="tag-count">${tagCounts[tag.name] || 0}</span>
-      </div>
-    `).join('');
-    
-    tagsCloud.querySelectorAll('.tag-cloud-item').forEach(item => {
-      item.addEventListener('click', () => {
-        showTaggedClips(item.dataset.tag, clips);
+    } else {
+      tagsCloud.innerHTML = tags.map(tag => `
+        <div class="tag-cloud-item" data-tag="${escapeHtml(tag.name)}" style="background-color: ${tag.color}">
+          ${escapeHtml(tag.name)}
+          <span class="tag-count">${tagCounts[tag.name] || 0}</span>
+        </div>
+      `).join('');
+      
+      tagsCloud.querySelectorAll('.tag-cloud-item').forEach(item => {
+        item.addEventListener('click', () => {
+          showTaggedClips(item.dataset.tag, clips);
+        });
       });
-    });
+    }
   } catch (e) {
     console.error('Load tags error:', e);
   }
+}
+
+function showTopicClips(topicName, clips) {
+  const topicClips = clips.filter(c => c.topic === topicName);
+  const container = document.getElementById('tagged-clips');
+  const title = document.getElementById('selected-tag-title');
+  const list = document.getElementById('tagged-clips-list');
+  
+  title.textContent = `主题: ${topicName} (${topicClips.length})`;
+  
+  if (topicClips.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <p>该主题下暂无内容</p>
+      </div>
+    `;
+  } else {
+    list.innerHTML = topicClips.map(clip => createClipCard(clip)).join('');
+    bindClipCardEvents(list);
+  }
+  
+  container.style.display = 'block';
+  container.scrollIntoView({ behavior: 'smooth' });
 }
 
 function showTaggedClips(tagName, clips) {
@@ -495,13 +552,15 @@ function createClipCard(clip) {
     <div class="clip-card" data-id="${clip.id}">
       <div class="clip-card-header">
         ${clip.favicon ? `<img src="${clip.favicon}" alt="" class="clip-card-favicon" onerror="this.style.display='none'">` : ''}
-        <div class="clip-card-title">${clip.title || '无标题'}</div>
+        <div class="clip-card-title">${escapeHtml(clip.title || '无标题')}</div>
       </div>
       ${clip.content ? `<div class="clip-card-content">${escapeHtml(clip.content)}</div>` : ''}
+      ${clip.notes ? `<div class="clip-card-notes">${escapeHtml(clip.notes)}</div>` : ''}
       <div class="clip-card-footer">
         <div class="clip-card-tags">
-          ${clip.tags.slice(0, 3).map(tag => `<span class="clip-card-tag">${tag}</span>`).join('')}
+          ${clip.tags.slice(0, 3).map(tag => `<span class="clip-card-tag">${escapeHtml(tag)}</span>`).join('')}
           ${clip.tags.length > 3 ? `<span class="clip-card-tag">+${clip.tags.length - 3}</span>` : ''}
+          ${clip.topic ? `<span class="clip-card-topic">📁 ${escapeHtml(clip.topic)}</span>` : ''}
           ${credibilityBadge}
         </div>
         <span class="clip-card-time" title="${new Date(clip.createdAt).toLocaleString()}">${timeAgo}</span>

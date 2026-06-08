@@ -168,9 +168,13 @@ function setupEventListeners() {
   });
 
   document.getElementById('btn-open-sidebar').addEventListener('click', async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    chrome.sidePanel.open({ windowId: tab.windowId });
-    window.close();
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      await sendMessage('openSidePanel', { windowId: tab.windowId });
+      window.close();
+    } catch (e) {
+      console.error('Open sidebar error:', e);
+    }
   });
 }
 

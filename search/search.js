@@ -3,6 +3,7 @@ let filteredClips = [];
 let selectedClipIds = [];
 let currentFilters = {
   keyword: '',
+  topics: [],
   tags: [],
   sources: [],
   dateRange: null,
@@ -83,8 +84,47 @@ function setupEventListeners() {
 }
 
 function renderFilters() {
+  renderTopicFilters();
   renderTagFilters();
   renderSourceFilters();
+}
+
+function renderTopicFilters() {
+  const topicCounts = {};
+  allClips.forEach(clip => {
+    if (clip.topic) {
+      topicCounts[clip.topic] = (topicCounts[clip.topic] || 0) + 1;
+    }
+  });
+
+  const topicsFilter = document.getElementById('topics-filter');
+  const topics = Object.keys(topicCounts).sort();
+  
+  if (topics.length === 0) {
+    topicsFilter.innerHTML = '<p style="color: #adb5bd; font-size: 13px;">暂无主题，剪藏时选择主题归档</p>';
+    return;
+  }
+
+  topicsFilter.innerHTML = topics.map(topic => `
+    <div class="topic-filter-item ${currentFilters.topics.includes(topic) ? 'active' : ''}" data-topic="${topic}">
+      📁 ${escapeHtml(topic)}
+      <span class="topic-count">${topicCounts[topic]}</span>
+    </div>
+  `).join('');
+
+  topicsFilter.querySelectorAll('.topic-filter-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const topic = item.dataset.topic;
+      const index = currentFilters.topics.indexOf(topic);
+      if (index > -1) {
+        currentFilters.topics.splice(index, 1);
+      } else {
+        currentFilters.topics.push(topic);
+      }
+      applyFilters();
+      renderTopicFilters();
+    });
+  });
 }
 
 function renderTagFilters() {
@@ -104,8 +144,8 @@ function renderTagFilters() {
   }
 
   tagsFilter.innerHTML = tags.map(tag => `
-    <div class="tag-filter-item ${currentFilters.tags.includes(tag) ? 'active' : ''}" data-tag="${tag}">
-      ${tag}
+    <div class="tag-filter-item ${currentFilters.tags.includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}">
+      ${escapeHtml(tag)}
       <span class="tag-count">${tagCounts[tag]}</span>
     </div>
   `).join('');
@@ -178,6 +218,12 @@ function applyFilters() {
     );
   }
 
+  if (currentFilters.topics.length > 0) {
+    results = results.filter(c =>
+      currentFilters.topics.includes(c.topic)
+    );
+  }
+
   if (currentFilters.tags.length > 0) {
     results = results.filter(c =>
       currentFilters.tags.some(t => c.tags.includes(t))
@@ -223,8 +269,11 @@ function updateActiveFiltersDisplay() {
   if (currentFilters.keyword) {
     filters.push({ label: `"${currentFilters.keyword}"`, type: 'keyword' });
   }
+  currentFilters.topics.forEach(topic => {
+    filters.push({ label: `📁 ${escapeHtml(topic)}`, type: 'topic', value: topic });
+  });
   currentFilters.tags.forEach(tag => {
-    filters.push({ label: `#${tag}`, type: 'tag', value: tag });
+    filters.push({ label: `#${escapeHtml(tag)}`, type: 'tag', value: tag });
   });
   currentFilters.sources.forEach(source => {
     filters.push({ label: source, type: 'source', value: source });
@@ -257,6 +306,9 @@ function removeFilter(type, value) {
       currentFilters.keyword = '';
       document.getElementById('search-input').value = '';
       break;
+    case 'topic':
+      currentFilters.topics = currentFilters.topics.filter(t => t !== value);
+      break;
     case 'tag':
       currentFilters.tags = currentFilters.tags.filter(t => t !== value);
       break;
@@ -283,6 +335,7 @@ function removeFilter(type, value) {
 function resetFilters() {
   currentFilters = {
     keyword: '',
+    topics: [],
     tags: [],
     sources: [],
     dateRange: null,
@@ -297,6 +350,7 @@ function resetFilters() {
   document.querySelectorAll('.credibility-checkbox').forEach(cb => cb.checked = false);
 
   filteredClips = [...allClips];
+  renderTopicFilters();
   renderTagFilters();
   renderSourceFilters();
   renderClips();
@@ -350,6 +404,11 @@ function createClipCard(clip) {
     credibilityBadge = `<span class="credibility-badge credibility-${clip.credibility}">${getCredibilityLabel(clip.credibility)}</span>`;
   }
 
+  let topicBadge = '';
+  if (clip.topic) {
+    topicBadge = `<span class="clip-card-topic">📁 ${escapeHtml(clip.topic)}</span>`;
+  }
+
   return `
     <div class="clip-card ${isSelected ? 'selected' : ''}" data-id="${clip.id}">
       <input type="checkbox" class="clip-select" ${isSelected ? 'checked' : ''}>
@@ -363,10 +422,11 @@ function createClipCard(clip) {
       <div class="clip-card-meta">
         <span class="clip-card-domain">${domain}</span>
         ${credibilityBadge}
+        ${topicBadge}
       </div>
       <div class="clip-card-footer">
         <div class="clip-card-tags">
-          ${clip.tags.slice(0, 3).map(tag => `<span class="clip-card-tag">${tag}</span>`).join('')}
+          ${clip.tags.slice(0, 3).map(tag => `<span class="clip-card-tag">${escapeHtml(tag)}</span>`).join('')}
           ${clip.tags.length > 3 ? `<span class="clip-card-tag">+${clip.tags.length - 3}</span>` : ''}
         </div>
         <span class="clip-card-time" title="${new Date(clip.createdAt).toLocaleString()}">${timeAgo}</span>

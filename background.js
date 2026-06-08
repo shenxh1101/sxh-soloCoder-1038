@@ -4,7 +4,8 @@ const STORAGE_KEYS = {
   READ_LATER: 'kv_read_later',
   SETTINGS: 'kv_settings',
   REVIEW_REMINDERS: 'kv_review_reminders',
-  OUTLINES: 'kv_outlines'
+  OUTLINES: 'kv_outlines',
+  HIGHLIGHTS: 'kv_highlights'
 };
 
 const DEFAULT_SETTINGS = {
@@ -46,8 +47,16 @@ class ClipManager {
       tags: clip.tags || [],
       credibility: clip.credibility || 'neutral',
       notes: clip.notes || '',
+      topic: clip.topic || '',
       isReadLater: false
     };
+    
+    if (newClip.tags && newClip.tags.length > 0) {
+      for (const tag of newClip.tags) {
+        await TagManager.ensureTagExists(tag);
+      }
+    }
+    
     clips.unshift(newClip);
     await StorageManager.set(STORAGE_KEYS.CLIPS, clips);
     return newClip;
@@ -57,6 +66,11 @@ class ClipManager {
     const clips = await this.getAll();
     const index = clips.findIndex(c => c.id === id);
     if (index !== -1) {
+      if (updates.tags && updates.tags.length > 0) {
+        for (const tag of updates.tags) {
+          await TagManager.ensureTagExists(tag);
+        }
+      }
       clips[index] = {
         ...clips[index],
         ...updates,
@@ -297,6 +311,48 @@ class CitationManager {
   }
 }
 
+class HighlightManager {
+  static async getAll() {
+    return await StorageManager.get(STORAGE_KEYS.HIGHLIGHTS, []);
+  }
+
+  static async save(highlight) {
+    const highlights = await this.getAll();
+    const newHighlight = {
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+      ...highlight,
+      createdAt: new Date().toISOString()
+    };
+    highlights.push(newHighlight);
+    await StorageManager.set(STORAGE_KEYS.HIGHLIGHTS, highlights);
+    return newHighlight;
+  }
+
+  static async getByUrl(url) {
+    const highlights = await this.getAll();
+    const normalizedUrl = this.normalizeUrl(url);
+    return highlights.filter(h => this.normalizeUrl(h.url) === normalizedUrl);
+  }
+
+  static normalizeUrl(url) {
+    try {
+      const u = new URL(url);
+      u.hash = '';
+      u.search = '';
+      return u.toString();
+    } catch {
+      return url;
+    }
+  }
+
+  static async delete(id) {
+    const highlights = await this.getAll();
+    const filtered = highlights.filter(h => h.id !== id);
+    await StorageManager.set(STORAGE_KEYS.HIGHLIGHTS, filtered);
+    return filtered;
+  }
+}
+
 class OutlineManager {
   static async getAll() {
     return await StorageManager.get(STORAGE_KEYS.OUTLINES, []);
@@ -466,16 +522,21 @@ function showNotification(title, message) {
 }
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
-  switch (command) {
-    case 'save-clip':
-      await handleQuickSave(tab);
-      break;
-    case 'toggle-sidebar':
-      chrome.sidePanel.open({ windowId: tab.windowId });
-      break;
-    case 'read-later':
-      await handleReadLater(tab);
-      break;
+  try {
+    switch (command) {
+      case 'save-clip':
+        await handleQuickSave(tab);
+        break;
+      case 'toggle-sidebar':
+        const currentWindow = tab ? tab.windowId : (await chrome.windows.getCurrent()).id;
+        chrome.sidePanel.open({ windowId: currentWindow });
+        break;
+      case 'read-later':
+        await handleReadLater(tab);
+        break;
+    }
+  } catch (e) {
+    console.error('Command error:', e);
   }
 });
 
@@ -565,12 +626,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const sourceInfo = CitationManager.getSourceInfo(request.clip);
           sendResponse({ success: true, sourceInfo });
           break;
+        case 'saveHighlight':
+          const savedHighlight = await HighlightManager.save(request.highlight);
+          sendResponse({ success: true, highlight: savedHighlight });
+          break;
+        case 'getHighlightsByUrl':
+          const urlHighlights = await HighlightManager.getByUrl(request.url);
+          sendResponse({ success: true, highlights: urlHighlights });
+          break;
+        case 'deleteHighlight':
+          await HighlightManager.delete(request.id);
+          sendResponse({ success: true });
+          break;
         case 'getSettings':
           const settings = await StorageManager.get(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
           sendResponse({ success: true, settings });
           break;
         case 'updateSettings':
           await StorageManager.set(STORAGE_KEYS.SETTINGS, { ...DEFAULT_SETTINGS, ...request.settings });
+          sendResponse({ success: true });
+          break;
+        case 'openSidePanel':
+          const windowId = request.windowId || (await chrome.windows.getCurrent()).id;
+          chrome.sidePanel.open({ windowId });
+          sendResponse({ success: true });
+          break;
+        case 'openPopup':
+          chrome.action.openPopup();
           sendResponse({ success: true });
           break;
         default:

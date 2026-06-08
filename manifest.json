@@ -19,8 +19,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Knowledge Vault",
-    "default_popup": "popup/popup.html"
+    "default_title": "Knowledge Vault"
   },
   "content_scripts": [
     {

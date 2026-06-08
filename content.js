@@ -133,27 +133,38 @@
     if (!currentSelection) return;
     
     const range = currentSelection.range;
+    const text = currentSelection.text;
     const span = document.createElement('span');
     span.className = HIGHLIGHT_CLASS;
     span.style.backgroundColor = highlightColor;
     span.dataset.kvHighlight = 'true';
-    span.dataset.kvText = currentSelection.text;
+    span.dataset.kvText = text;
     
     try {
       range.surroundContents(span);
       
       const highlight = {
-        text: currentSelection.text,
+        text: text,
         url: window.location.href,
         color: highlightColor,
-        xpath: getXPath(span)
+        xpath: getXPath(span),
+        context: getSurroundingText(text)
       };
       
-      showToast('已高亮');
+      await sendMessage('saveHighlight', { highlight });
+      
+      showToast('已高亮（已保存）');
       hideFloatingButton();
       window.getSelection().removeAllRanges();
     } catch (e) {
-      showToast('无法高亮跨元素文本', 'error');
+      try {
+        await highlightTextSmart(text, highlightColor);
+        showToast('已高亮（已保存）');
+        hideFloatingButton();
+        window.getSelection().removeAllRanges();
+      } catch (e2) {
+        showToast('无法高亮该文本', 'error');
+      }
     }
   }
 
@@ -262,6 +273,88 @@
     }
   }
 
+  function getSurroundingText(text, charCount = 50) {
+    const fullText = document.body.innerText;
+    const index = fullText.indexOf(text);
+    if (index === -1) return null;
+    const start = Math.max(0, index - charCount);
+    const end = Math.min(fullText.length, index + text.length + charCount);
+    return fullText.substring(start, end);
+  }
+
+  function findTextNodes(searchText, contextText = null) {
+    const matches = [];
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function(node) {
+          if (node.parentElement.closest(`.${HIGHLIGHT_CLASS}`)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (node.textContent.includes(searchText)) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          return NodeFilter.FILTER_SKIP;
+        }
+      }
+    );
+
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      let pos = node.textContent.indexOf(searchText);
+      while (pos !== -1) {
+        matches.push({ node, position: pos });
+        pos = node.textContent.indexOf(searchText, pos + 1);
+      }
+    }
+    return matches;
+  }
+
+  function highlightTextSmart(text, color = highlightColor) {
+    return new Promise((resolve, reject) => {
+      try {
+        const matches = findTextNodes(text);
+        if (matches.length === 0) {
+          reject(new Error('Text not found'));
+          return;
+        }
+
+        const highlight = {
+          text: text,
+          url: window.location.href,
+          color: color,
+          context: getSurroundingText(text)
+        };
+
+        matches.forEach(({ node, position }) => {
+          const range = document.createRange();
+          range.setStart(node, position);
+          range.setEnd(node, position + text.length);
+
+          const span = document.createElement('span');
+          span.className = HIGHLIGHT_CLASS;
+          span.style.backgroundColor = color;
+          span.dataset.kvHighlight = 'true';
+          span.dataset.kvText = text;
+
+          try {
+            range.surroundContents(span);
+          } catch (e) {
+            const extracted = range.extractContents();
+            span.appendChild(extracted);
+            range.insertNode(span);
+          }
+        });
+
+        sendMessage('saveHighlight', { highlight });
+        resolve(true);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
   function highlightText(text, color = highlightColor) {
     const bodyText = document.body.innerHTML;
     const regex = new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
@@ -277,7 +370,56 @@
     });
   }
 
-  function applySavedHighlights() {
+  async function applySavedHighlights() {
+    try {
+      const response = await sendMessage('getHighlightsByUrl', { 
+        url: window.location.href 
+      });
+      
+      if (!response.success || !response.highlights || response.highlights.length === 0) {
+        return;
+      }
+
+      const highlights = response.highlights;
+      let restoredCount = 0;
+
+      for (const highlight of highlights) {
+        try {
+          const matches = findTextNodes(highlight.text);
+          if (matches.length > 0) {
+            matches.forEach(({ node, position }) => {
+              const range = document.createRange();
+              range.setStart(node, position);
+              range.setEnd(node, position + highlight.text.length);
+
+              const span = document.createElement('span');
+              span.className = HIGHLIGHT_CLASS;
+              span.style.backgroundColor = highlight.color || highlightColor;
+              span.dataset.kvHighlight = 'true';
+              span.dataset.kvText = highlight.text;
+              span.dataset.kvHighlightId = highlight.id;
+
+              try {
+                range.surroundContents(span);
+              } catch (e) {
+                const extracted = range.extractContents();
+                span.appendChild(extracted);
+                range.insertNode(span);
+              }
+            });
+            restoredCount++;
+          }
+        } catch (e) {
+          console.warn('Failed to restore highlight:', highlight.text, e);
+        }
+      }
+
+      if (restoredCount > 0) {
+        console.log(`Knowledge Vault: 已恢复 ${restoredCount} 个高亮`);
+      }
+    } catch (e) {
+      console.error('Apply saved highlights error:', e);
+    }
   }
 
   function showToast(message, type = 'success') {

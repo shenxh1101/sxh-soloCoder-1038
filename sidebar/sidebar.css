@@ -371,6 +371,48 @@ body {
   margin-bottom: 24px;
 }
 
+.topics-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.topic-cloud-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+  color: #7b1fa2;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  width: 100%;
+}
+
+.topic-cloud-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(123, 31, 162, 0.2);
+  background: linear-gradient(135deg, #e1bee7 0%, #ce93d8 100%);
+}
+
+.topic-cloud-item .topic-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 22px;
+  background: rgba(123, 31, 162, 0.2);
+  color: #7b1fa2;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
 .tag-cloud-item {
   display: flex;
   align-items: center;
@@ -482,6 +524,15 @@ body {
   padding: 2px 8px;
   background: #e3f2fd;
   color: #1565c0;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.clip-card-topic {
+  padding: 2px 8px;
+  background: #f3e5f5;
+  color: #7b1fa2;
   border-radius: 10px;
   font-size: 11px;
   font-weight: 500;
