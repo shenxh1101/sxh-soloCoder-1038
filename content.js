@@ -143,15 +143,21 @@
     try {
       range.surroundContents(span);
       
+      const context = getSurroundingText(text);
+      const position = getTextPosition(text);
+      
       const highlight = {
         text: text,
         url: window.location.href,
         color: highlightColor,
-        xpath: getXPath(span),
-        context: getSurroundingText(text)
+        context: context,
+        position: position
       };
       
-      await sendMessage('saveHighlight', { highlight });
+      const saved = await sendMessage('saveHighlight', { highlight });
+      if (saved && saved.highlight) {
+        span.dataset.kvHighlightId = saved.highlight.id;
+      }
       
       showToast('已高亮（已保存）');
       hideFloatingButton();
@@ -273,13 +279,140 @@
     }
   }
 
-  function getSurroundingText(text, charCount = 50) {
+  function getSurroundingText(text, charCount = 80) {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      const fullText = container.textContent || document.body.innerText;
+      const textContent = container.textContent || '';
+      const selectedText = selection.toString();
+      const index = textContent.indexOf(selectedText);
+      
+      if (index !== -1 && container.nodeType === Node.TEXT_NODE) {
+        const start = Math.max(0, index - charCount);
+        const end = Math.min(textContent.length, index + selectedText.length + charCount);
+        return {
+          before: textContent.substring(start, index),
+          after: textContent.substring(index + selectedText.length, end),
+          full: textContent.substring(start, end)
+        };
+      }
+    }
+    
     const fullText = document.body.innerText;
     const index = fullText.indexOf(text);
     if (index === -1) return null;
     const start = Math.max(0, index - charCount);
     const end = Math.min(fullText.length, index + text.length + charCount);
-    return fullText.substring(start, end);
+    return {
+      before: fullText.substring(start, index),
+      after: fullText.substring(index + text.length, end),
+      full: fullText.substring(start, end)
+    };
+  }
+
+  function getTextPosition(text, occurrence = 0) {
+    let count = 0;
+    const matches = findTextNodes(text);
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      if (count === occurrence) {
+        const xpath = getXPath(match.node);
+        return {
+          xpath,
+          occurrence: count,
+          totalMatches: matches.length,
+          position: match.position
+        };
+      }
+      count++;
+    }
+    return { occurrence: 0, totalMatches: matches.length, position: 0 };
+  }
+
+  function calculateSimilarity(str1, str2) {
+    if (!str1 || !str2) return 0;
+    const s1 = str1.toLowerCase();
+    const s2 = str2.toLowerCase();
+    
+    let matches = 0;
+    const minLen = Math.min(s1.length, s2.length);
+    for (let i = 0; i < minLen; i++) {
+      if (s1[i] === s2[i]) matches++;
+    }
+    
+    return matches / Math.max(s1.length, s2.length);
+  }
+
+  function findBestMatch(highlight) {
+    const matches = findTextNodes(highlight.text);
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+    
+    if (highlight.position && highlight.position.xpath) {
+      try {
+        const xpathResult = document.evaluate(
+          highlight.position.xpath,
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null
+        );
+        const node = xpathResult.singleNodeValue;
+        if (node && node.textContent.includes(highlight.text)) {
+          const pos = node.textContent.indexOf(highlight.text);
+          if (pos !== -1) {
+            return { node, position: pos };
+          }
+        }
+      } catch (e) {
+      }
+    }
+    
+    if (highlight.context) {
+      let bestMatch = null;
+      let bestScore = 0;
+      
+      for (const match of matches) {
+        const nodeText = match.node.textContent;
+        const pos = match.position;
+        
+        const beforeContext = nodeText.substring(
+          Math.max(0, pos - 80),
+          pos
+        );
+        const afterContext = nodeText.substring(
+          pos + highlight.text.length,
+          Math.min(nodeText.length, pos + highlight.text.length + 80)
+        );
+        
+        const beforeScore = highlight.context.before 
+          ? calculateSimilarity(beforeContext, highlight.context.before)
+          : 0;
+        const afterScore = highlight.context.after
+          ? calculateSimilarity(afterContext, highlight.context.after)
+          : 0;
+        
+        const totalScore = (beforeScore + afterScore) / 2;
+        
+        if (totalScore > bestScore) {
+          bestScore = totalScore;
+          bestMatch = match;
+        }
+      }
+      
+      if (bestScore > 0.3) {
+        return bestMatch;
+      }
+    }
+    
+    if (highlight.position && highlight.position.occurrence !== undefined) {
+      const targetOccurrence = Math.min(highlight.position.occurrence, matches.length - 1);
+      return matches[targetOccurrence];
+    }
+    
+    return matches[0];
   }
 
   function findTextNodes(searchText, contextText = null) {
@@ -312,43 +445,63 @@
   }
 
   function highlightTextSmart(text, color = highlightColor) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         const matches = findTextNodes(text);
         if (matches.length === 0) {
           reject(new Error('Text not found'));
           return;
         }
+        
+        let targetMatch = matches[0];
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          const selectedNode = range.commonAncestorContainer;
+          const selectedText = selection.toString();
+          
+          for (const match of matches) {
+            if (match.node === selectedNode || match.node.parentNode === selectedNode) {
+              targetMatch = match;
+              break;
+            }
+          }
+        }
 
+        const context = getSurroundingText(text);
+        const position = getTextPosition(text);
+        
         const highlight = {
           text: text,
           url: window.location.href,
           color: color,
-          context: getSurroundingText(text)
+          context: context,
+          position: position
         };
 
-        matches.forEach(({ node, position }) => {
-          const range = document.createRange();
-          range.setStart(node, position);
-          range.setEnd(node, position + text.length);
+        await sendMessage('saveHighlight', { highlight });
 
-          const span = document.createElement('span');
-          span.className = HIGHLIGHT_CLASS;
-          span.style.backgroundColor = color;
-          span.dataset.kvHighlight = 'true';
-          span.dataset.kvText = text;
+        const { node, position: pos } = targetMatch;
+        const range = document.createRange();
+        range.setStart(node, pos);
+        range.setEnd(node, pos + text.length);
 
-          try {
-            range.surroundContents(span);
-          } catch (e) {
-            const extracted = range.extractContents();
-            span.appendChild(extracted);
-            range.insertNode(span);
-          }
-        });
+        const span = document.createElement('span');
+        span.className = HIGHLIGHT_CLASS;
+        span.style.backgroundColor = color;
+        span.dataset.kvHighlight = 'true';
+        span.dataset.kvText = text;
+        span.dataset.kvHighlightId = highlight.id;
 
-        sendMessage('saveHighlight', { highlight });
-        resolve(true);
+        try {
+          range.surroundContents(span);
+        } catch (e) {
+          const extracted = range.extractContents();
+          span.appendChild(extracted);
+          range.insertNode(span);
+        }
+        
+        resolve(highlight);
       } catch (e) {
         reject(e);
       }
@@ -385,29 +538,32 @@
 
       for (const highlight of highlights) {
         try {
-          const matches = findTextNodes(highlight.text);
-          if (matches.length > 0) {
-            matches.forEach(({ node, position }) => {
-              const range = document.createRange();
-              range.setStart(node, position);
-              range.setEnd(node, position + highlight.text.length);
+          const bestMatch = findBestMatch(highlight);
+          
+          if (bestMatch) {
+            const { node, position: pos } = bestMatch;
+            const range = document.createRange();
+            range.setStart(node, pos);
+            range.setEnd(node, pos + highlight.text.length);
 
-              const span = document.createElement('span');
-              span.className = HIGHLIGHT_CLASS;
-              span.style.backgroundColor = highlight.color || highlightColor;
-              span.dataset.kvHighlight = 'true';
-              span.dataset.kvText = highlight.text;
-              span.dataset.kvHighlightId = highlight.id;
+            const span = document.createElement('span');
+            span.className = HIGHLIGHT_CLASS;
+            span.style.backgroundColor = highlight.color || highlightColor;
+            span.dataset.kvHighlight = 'true';
+            span.dataset.kvText = highlight.text;
+            span.dataset.kvHighlightId = highlight.id;
 
-              try {
-                range.surroundContents(span);
-              } catch (e) {
-                const extracted = range.extractContents();
-                span.appendChild(extracted);
-                range.insertNode(span);
-              }
-            });
+            try {
+              range.surroundContents(span);
+            } catch (e) {
+              const extracted = range.extractContents();
+              span.appendChild(extracted);
+              range.insertNode(span);
+            }
+            
             restoredCount++;
+          } else {
+            console.warn(`Could not find exact match for highlight: "${highlight.text.substring(0, 30)}..."`);
           }
         } catch (e) {
           console.warn('Failed to restore highlight:', highlight.text, e);
@@ -415,7 +571,7 @@
       }
 
       if (restoredCount > 0) {
-        console.log(`Knowledge Vault: 已恢复 ${restoredCount} 个高亮`);
+        console.log(`Knowledge Vault: 已恢复 ${restoredCount}/${highlights.length} 个高亮`);
       }
     } catch (e) {
       console.error('Apply saved highlights error:', e);

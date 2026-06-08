@@ -141,12 +141,14 @@
             <div class="form-group">
               <label>主题归档</label>
               <select id="clip-topic" class="select">
-                <option value="">未分类</option>
-                <option value="research">学术研究</option>
-                <option value="news">新闻资讯</option>
-                <option value="tech">技术资料</option>
-                <option value="creative">创意灵感</option>
-                <option value="personal">个人笔记</option>
+                <option value="">不设置主题</option>
+                <option value="学术研究">📚 学术研究</option>
+                <option value="新闻资讯">📰 新闻资讯</option>
+                <option value="技术资料">💻 技术资料</option>
+                <option value="产品文档">📋 产品文档</option>
+                <option value="设计参考">🎨 设计参考</option>
+                <option value="营销素材">📣 营销素材</option>
+                <option value="其他资料">📁 其他资料</option>
               </select>
             </div>
           </div>
@@ -270,6 +272,22 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="detail-modal" id="detail-modal">
+    <div class="detail-modal-content">
+      <div class="detail-modal-header">
+        <h2 id="detail-title">资料详情</h2>
+        <button class="icon-btn" id="btn-close-detail" title="关闭">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="detail-modal-body" id="detail-body">
+      </div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>

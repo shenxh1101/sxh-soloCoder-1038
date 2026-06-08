@@ -5,8 +5,19 @@ const STORAGE_KEYS = {
   SETTINGS: 'kv_settings',
   REVIEW_REMINDERS: 'kv_review_reminders',
   OUTLINES: 'kv_outlines',
-  HIGHLIGHTS: 'kv_highlights'
+  HIGHLIGHTS: 'kv_highlights',
+  PROJECT_SETS: 'kv_project_sets'
 };
+
+const TOPICS = [
+  { id: 'academic', name: '学术研究', icon: '📚' },
+  { id: 'news', name: '新闻资讯', icon: '📰' },
+  { id: 'tech', name: '技术资料', icon: '💻' },
+  { id: 'product', name: '产品文档', icon: '📋' },
+  { id: 'design', name: '设计参考', icon: '🎨' },
+  { id: 'marketing', name: '营销素材', icon: '📣' },
+  { id: 'other', name: '其他资料', icon: '📁' }
+];
 
 const DEFAULT_SETTINGS = {
   highlightColor: '#fff59d',
@@ -38,6 +49,11 @@ class ClipManager {
 
   static async save(clip) {
     const clips = await this.getAll();
+    
+    if (clip.topic) {
+      clip.topic = TopicManager.getTopicName(clip.topic);
+    }
+    
     const newClip = {
       id: Date.now().toString(36) + Math.random().toString(36).substr(2),
       ...clip,
@@ -70,6 +86,9 @@ class ClipManager {
         for (const tag of updates.tags) {
           await TagManager.ensureTagExists(tag);
         }
+      }
+      if (updates.topic) {
+        updates.topic = TopicManager.getTopicName(updates.topic);
       }
       clips[index] = {
         ...clips[index],
@@ -350,6 +369,135 @@ class HighlightManager {
     const filtered = highlights.filter(h => h.id !== id);
     await StorageManager.set(STORAGE_KEYS.HIGHLIGHTS, filtered);
     return filtered;
+  }
+}
+
+class TopicManager {
+  static getAll() {
+    return TOPICS;
+  }
+
+  static getTopicById(id) {
+    return TOPICS.find(t => t.id === id);
+  }
+
+  static getTopicByName(name) {
+    return TOPICS.find(t => t.name === name);
+  }
+
+  static getTopicName(topicIdOrName) {
+    const topic = this.getTopicById(topicIdOrName) || this.getTopicByName(topicIdOrName);
+    return topic ? topic.name : topicIdOrName;
+  }
+
+  static getTopicIcon(topicIdOrName) {
+    const topic = this.getTopicById(topicIdOrName) || this.getTopicByName(topicIdOrName);
+    return topic ? topic.icon : '📁';
+  }
+}
+
+class ProjectSetManager {
+  static async getAll() {
+    return await StorageManager.get(STORAGE_KEYS.PROJECT_SETS, []);
+  }
+
+  static async getById(id) {
+    const sets = await this.getAll();
+    return sets.find(s => s.id === id);
+  }
+
+  static async create(name, description = '') {
+    const sets = await this.getAll();
+    const newSet = {
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+      name,
+      description,
+      clipIds: [],
+      notes: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    sets.unshift(newSet);
+    await StorageManager.set(STORAGE_KEYS.PROJECT_SETS, sets);
+    return newSet;
+  }
+
+  static async update(id, updates) {
+    const sets = await this.getAll();
+    const index = sets.findIndex(s => s.id === id);
+    if (index !== -1) {
+      sets[index] = {
+        ...sets[index],
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+      await StorageManager.set(STORAGE_KEYS.PROJECT_SETS, sets);
+      return sets[index];
+    }
+    return null;
+  }
+
+  static async delete(id) {
+    const sets = await this.getAll();
+    const filtered = sets.filter(s => s.id !== id);
+    await StorageManager.set(STORAGE_KEYS.PROJECT_SETS, filtered);
+    return filtered;
+  }
+
+  static async addClips(setId, clipIds) {
+    const set = await this.getById(setId);
+    if (set) {
+      const newClipIds = [...new Set([...set.clipIds, ...clipIds])];
+      return await this.update(setId, { clipIds: newClipIds });
+    }
+    return null;
+  }
+
+  static async removeClip(setId, clipId) {
+    const set = await this.getById(setId);
+    if (set) {
+      const newClipIds = set.clipIds.filter(id => id !== clipId);
+      return await this.update(setId, { clipIds: newClipIds });
+    }
+    return null;
+  }
+
+  static async reorderClips(setId, clipIds) {
+    return await this.update(setId, { clipIds });
+  }
+
+  static async generateSummary(setId) {
+    const set = await this.getById(setId);
+    if (!set) return '';
+
+    const clips = await ClipManager.getAll();
+    const setClips = set.clipIds
+      .map(id => clips.find(c => c.id === id))
+      .filter(Boolean);
+
+    let md = `# ${set.name}\n\n`;
+    if (set.description) {
+      md += `> ${set.description}\n\n`;
+    }
+    if (set.notes) {
+      md += `## 项目备注\n\n${set.notes}\n\n`;
+    }
+    md += `---\n\n`;
+    md += `## 资料汇总 (${setClips.length} 条)\n\n`;
+
+    setClips.forEach((clip, index) => {
+      md += `### ${index + 1}. ${clip.title}\n\n`;
+      if (clip.content) {
+        md += `${clip.content}\n\n`;
+      }
+      if (clip.notes) {
+        md += `**批注**: ${clip.notes}\n\n`;
+      }
+      md += `**来源**: [${clip.url}](${clip.url})\n\n`;
+      md += `---\n\n`;
+    });
+
+    return md;
   }
 }
 
@@ -654,6 +802,50 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         case 'openPopup':
           chrome.action.openPopup();
           sendResponse({ success: true });
+          break;
+        case 'getTopics':
+          const topics = TopicManager.getAll();
+          sendResponse({ success: true, topics });
+          break;
+        case 'getTopicInfo':
+          const topicInfo = TopicManager.getTopicById(request.topicId) || TopicManager.getTopicByName(request.topicId);
+          sendResponse({ success: true, topic: topicInfo });
+          break;
+        case 'getProjectSets':
+          const projectSets = await ProjectSetManager.getAll();
+          sendResponse({ success: true, projectSets });
+          break;
+        case 'getProjectSet':
+          const projectSet = await ProjectSetManager.getById(request.id);
+          sendResponse({ success: true, projectSet });
+          break;
+        case 'createProjectSet':
+          const newSet = await ProjectSetManager.create(request.name, request.description);
+          sendResponse({ success: true, projectSet: newSet });
+          break;
+        case 'updateProjectSet':
+          const updatedSet = await ProjectSetManager.update(request.id, request.updates);
+          sendResponse({ success: true, projectSet: updatedSet });
+          break;
+        case 'deleteProjectSet':
+          await ProjectSetManager.delete(request.id);
+          sendResponse({ success: true });
+          break;
+        case 'addClipsToProjectSet':
+          const setWithClips = await ProjectSetManager.addClips(request.setId, request.clipIds);
+          sendResponse({ success: true, projectSet: setWithClips });
+          break;
+        case 'removeClipFromProjectSet':
+          const setWithoutClip = await ProjectSetManager.removeClip(request.setId, request.clipId);
+          sendResponse({ success: true, projectSet: setWithoutClip });
+          break;
+        case 'reorderProjectSetClips':
+          const reorderedSet = await ProjectSetManager.reorderClips(request.setId, request.clipIds);
+          sendResponse({ success: true, projectSet: reorderedSet });
+          break;
+        case 'generateProjectSetSummary':
+          const setSummary = await ProjectSetManager.generateSummary(request.setId);
+          sendResponse({ success: true, markdown: setSummary });
           break;
         default:
           sendResponse({ success: false, error: 'Unknown action' });

@@ -4,6 +4,16 @@ let currentScreenshot = null;
 let currentCitationFormat = 'apa';
 let selectedClipForCitation = null;
 
+const TOPICS = [
+  { id: 'academic', name: '学术研究', icon: '📚' },
+  { id: 'news', name: '新闻资讯', icon: '📰' },
+  { id: 'tech', name: '技术资料', icon: '💻' },
+  { id: 'product', name: '产品文档', icon: '📋' },
+  { id: 'design', name: '设计参考', icon: '🎨' },
+  { id: 'marketing', name: '营销素材', icon: '📣' },
+  { id: 'other', name: '其他资料', icon: '📁' }
+];
+
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
@@ -13,8 +23,23 @@ function init() {
   setupCitationPanel();
   setupReadLaterPanel();
   setupRecentPanel();
+  setupDetailPanel();
   loadCurrentPageInfo();
   setupGlobalEvents();
+}
+
+function setupDetailPanel() {
+  document.getElementById('btn-close-detail').addEventListener('click', closeDetailModal);
+  document.getElementById('detail-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'detail-modal') {
+      closeDetailModal();
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('detail-modal').classList.contains('show')) {
+      closeDetailModal();
+    }
+  });
 }
 
 function setupTabs() {
@@ -284,12 +309,14 @@ async function loadTags(searchTerm = '') {
         </div>
       `;
     } else {
-      topicsCloud.innerHTML = topics.map(topic => `
+      topicsCloud.innerHTML = topics.map(topic => {
+        const topicInfo = TOPICS.find(t => t.name === topic) || { icon: '📁' };
+        return `
         <div class="topic-cloud-item" data-topic="${escapeHtml(topic)}">
-          📁 ${escapeHtml(topic)}
+          ${topicInfo.icon} ${escapeHtml(topic)}
           <span class="topic-count">${topicCounts[topic]}</span>
         </div>
-      `).join('');
+      `}).join('');
       
       topicsCloud.querySelectorAll('.topic-cloud-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -560,7 +587,7 @@ function createClipCard(clip) {
         <div class="clip-card-tags">
           ${clip.tags.slice(0, 3).map(tag => `<span class="clip-card-tag">${escapeHtml(tag)}</span>`).join('')}
           ${clip.tags.length > 3 ? `<span class="clip-card-tag">+${clip.tags.length - 3}</span>` : ''}
-          ${clip.topic ? `<span class="clip-card-topic">📁 ${escapeHtml(clip.topic)}</span>` : ''}
+          ${clip.topic ? `<span class="clip-card-topic">${(TOPICS.find(t => t.name === clip.topic) || { icon: '📁' }).icon} ${escapeHtml(clip.topic)}</span>` : ''}
           ${credibilityBadge}
         </div>
         <span class="clip-card-time" title="${new Date(clip.createdAt).toLocaleString()}">${timeAgo}</span>
@@ -623,12 +650,255 @@ async function openClip(clipId) {
     const response = await sendMessage('getClips');
     if (response.success) {
       const clip = response.clips.find(c => c.id === clipId);
-      if (clip && clip.url) {
-        chrome.tabs.create({ url: clip.url });
+      if (clip) {
+        showClipDetail(clip);
       }
     }
   } catch (e) {
     console.error('Open clip error:', e);
+  }
+}
+
+let currentDetailClip = null;
+let detailEditMode = false;
+
+function showClipDetail(clip) {
+  currentDetailClip = clip;
+  detailEditMode = false;
+  const modal = document.getElementById('detail-modal');
+  const body = document.getElementById('detail-body');
+  
+  renderDetailBody(clip, false);
+  modal.classList.add('show');
+}
+
+function closeDetailModal() {
+  const modal = document.getElementById('detail-modal');
+  modal.classList.remove('show');
+  currentDetailClip = null;
+  detailEditMode = false;
+}
+
+function renderDetailBody(clip, isEditing) {
+  const body = document.getElementById('detail-body');
+  const title = document.getElementById('detail-title');
+  const sourceInfo = CitationManager ? CitationManager.getSourceInfo(clip) : extractDomain(clip.url);
+  const domain = sourceInfo.domain || extractDomain(clip.url);
+  
+  title.textContent = isEditing ? '编辑资料' : '资料详情';
+  
+  const credibilityOptions = [
+    { value: 'high', label: '高可信度' },
+    { value: 'neutral', label: '一般' },
+    { value: 'low', label: '待验证' },
+    { value: 'unreliable', label: '不可靠' }
+  ];
+  
+  const topics = [
+    { id: 'academic', name: '学术研究', icon: '📚' },
+    { id: 'news', name: '新闻资讯', icon: '📰' },
+    { id: 'tech', name: '技术资料', icon: '💻' },
+    { id: 'product', name: '产品文档', icon: '📋' },
+    { id: 'design', name: '设计参考', icon: '🎨' },
+    { id: 'marketing', name: '营销素材', icon: '📣' },
+    { id: 'other', name: '其他资料', icon: '📁' }
+  ];
+  
+  if (isEditing) {
+    body.innerHTML = `
+      <div class="detail-section">
+        <label class="detail-label">标题</label>
+        <input type="text" class="input" id="detail-edit-title" value="${escapeHtml(clip.title || '')}" />
+      </div>
+      <div class="detail-section">
+        <label class="detail-label">来源链接</label>
+        <a href="${clip.url}" target="_blank" class="detail-link">${escapeHtml(clip.url)}</a>
+      </div>
+      <div class="detail-section">
+        <label class="detail-label">正文摘录</label>
+        <textarea class="textarea" id="detail-edit-content" rows="6">${escapeHtml(clip.content || '')}</textarea>
+      </div>
+      <div class="detail-section">
+        <label class="detail-label">个人批注</label>
+        <textarea class="textarea" id="detail-edit-notes" rows="4">${escapeHtml(clip.notes || '')}</textarea>
+      </div>
+      <div class="detail-section">
+        <label class="detail-label">标签 (用逗号分隔)</label>
+        <input type="text" class="input" id="detail-edit-tags" value="${escapeHtml(clip.tags ? clip.tags.join(', ') : '')}" />
+      </div>
+      <div class="detail-section">
+        <label class="detail-label">主题归档</label>
+        <select class="select" id="detail-edit-topic">
+          <option value="">不设置主题</option>
+          ${topics.map(t => `<option value="${t.name}" ${clip.topic === t.name ? 'selected' : ''}>${t.icon} ${t.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="detail-section">
+        <label class="detail-label">可信度</label>
+        <select class="select" id="detail-edit-credibility">
+          ${credibilityOptions.map(opt => `<option value="${opt.value}" ${clip.credibility === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+        </select>
+      </div>
+      ${clip.screenshot ? `
+        <div class="detail-section">
+          <label class="detail-label">截图</label>
+          <img src="${clip.screenshot}" alt="Screenshot" class="detail-screenshot" />
+        </div>
+      ` : ''}
+      <div class="detail-actions">
+        <button class="btn-secondary" id="detail-cancel-edit">取消</button>
+        <button class="btn-primary" id="detail-save-edit">保存修改</button>
+      </div>
+    `;
+    
+    document.getElementById('detail-cancel-edit').addEventListener('click', () => {
+      detailEditMode = false;
+      renderDetailBody(currentDetailClip, false);
+    });
+    
+    document.getElementById('detail-save-edit').addEventListener('click', saveDetailEdits);
+  } else {
+    const credibilityLabels = {
+      high: '高可信度',
+      neutral: '一般',
+      low: '待验证',
+      unreliable: '不可靠'
+    };
+    
+    body.innerHTML = `
+      <div class="detail-section">
+        <label class="detail-label">标题</label>
+        <h3 class="detail-title">${escapeHtml(clip.title || '无标题')}</h3>
+      </div>
+      <div class="detail-section">
+        <label class="detail-label">来源</label>
+        <div class="detail-source">
+          ${clip.favicon ? `<img src="${clip.favicon}" alt="" class="detail-favicon" onerror="this.style.display='none'" />` : ''}
+          <span class="detail-domain">${escapeHtml(domain)}</span>
+          <a href="${clip.url}" target="_blank" class="detail-link">查看原文 ↗</a>
+        </div>
+      </div>
+      ${clip.content ? `
+        <div class="detail-section">
+          <label class="detail-label">正文摘录</label>
+          <p class="detail-content">${escapeHtml(clip.content)}</p>
+        </div>
+      ` : ''}
+      ${clip.notes ? `
+        <div class="detail-section">
+          <label class="detail-label">个人批注</label>
+          <p class="detail-notes">${escapeHtml(clip.notes)}</p>
+        </div>
+      ` : ''}
+      ${clip.tags && clip.tags.length > 0 ? `
+        <div class="detail-section">
+          <label class="detail-label">标签</label>
+          <div class="detail-tags">
+            ${clip.tags.map(tag => `<span class="detail-tag">${escapeHtml(tag)}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+      ${clip.topic ? `
+        <div class="detail-section">
+          <label class="detail-label">主题归档</label>
+          <span class="clip-card-topic">${(TOPICS.find(t => t.name === clip.topic) || { icon: '📁' }).icon} ${escapeHtml(clip.topic)}</span>
+        </div>
+      ` : ''}
+      <div class="detail-section">
+        <label class="detail-label">可信度</label>
+        <span class="credibility-badge credibility-${clip.credibility}">${credibilityLabels[clip.credibility] || '一般'}</span>
+      </div>
+      ${clip.highlights && clip.highlights.length > 0 ? `
+        <div class="detail-section">
+          <label class="detail-label">高亮内容 (${clip.highlights.length})</label>
+          <div class="detail-highlights">
+            ${clip.highlights.slice(0, 3).map(h => `<div class="detail-highlight">${escapeHtml(h.text)}</div>`).join('')}
+            ${clip.highlights.length > 3 ? `<p class="detail-more">还有 ${clip.highlights.length - 3} 条高亮...</p>` : ''}
+          </div>
+        </div>
+      ` : ''}
+      ${clip.screenshot ? `
+        <div class="detail-section">
+          <label class="detail-label">截图</label>
+          <img src="${clip.screenshot}" alt="Screenshot" class="detail-screenshot" />
+        </div>
+      ` : ''}
+      ${clip.author || clip.publishedDate ? `
+        <div class="detail-section">
+          <label class="detail-label">引用信息</label>
+          <div class="detail-citation">
+            ${clip.author ? `<p>作者：${escapeHtml(clip.author)}</p>` : ''}
+            ${clip.publishedDate ? `<p>发布时间：${escapeHtml(clip.publishedDate)}</p>` : ''}
+          </div>
+        </div>
+      ` : ''}
+      <div class="detail-section">
+        <label class="detail-label">保存时间</label>
+        <p class="detail-time">${new Date(clip.createdAt).toLocaleString()}</p>
+      </div>
+      <div class="detail-actions">
+        <button class="btn-secondary" id="detail-open-url">打开原文</button>
+        <button class="btn-primary" id="detail-edit">编辑资料</button>
+      </div>
+    `;
+    
+    document.getElementById('detail-open-url').addEventListener('click', () => {
+      if (clip.url) chrome.tabs.create({ url: clip.url });
+    });
+    
+    document.getElementById('detail-edit').addEventListener('click', () => {
+      detailEditMode = true;
+      renderDetailBody(currentDetailClip, true);
+    });
+  }
+}
+
+async function saveDetailEdits() {
+  if (!currentDetailClip) return;
+  
+  const title = document.getElementById('detail-edit-title').value.trim();
+  const content = document.getElementById('detail-edit-content').value.trim();
+  const notes = document.getElementById('detail-edit-notes').value.trim();
+  const tagsInput = document.getElementById('detail-edit-tags').value.trim();
+  const topic = document.getElementById('detail-edit-topic').value;
+  const credibility = document.getElementById('detail-edit-credibility').value;
+  
+  const tags = tagsInput ? tagsInput.split(/[,，]/).map(t => t.trim()).filter(t => t) : [];
+  
+  try {
+    const response = await sendMessage('updateClip', {
+      id: currentDetailClip.id,
+      updates: {
+        title,
+        content,
+        notes,
+        tags,
+        topic,
+        credibility
+      }
+    });
+    
+    if (response.success) {
+      currentDetailClip = response.clip;
+      detailEditMode = false;
+      renderDetailBody(currentDetailClip, false);
+      showToast('已保存修改', 'success');
+      
+      refreshAllClipsLists();
+    }
+  } catch (e) {
+    console.error('Save detail edits error:', e);
+    showToast('保存失败', 'error');
+  }
+}
+
+function refreshAllClipsLists() {
+  if (currentTab === 'read-later') {
+    loadReadLater();
+  } else if (currentTab === 'recent') {
+    loadRecentClips();
+  } else if (currentTab === 'tags') {
+    loadTags();
   }
 }
 
