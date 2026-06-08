@@ -406,14 +406,14 @@ class ProjectSetManager {
     return sets.find(s => s.id === id);
   }
 
-  static async create(name, description = '') {
+  static async create(name, description = '', notes = '') {
     const sets = await this.getAll();
     const newSet = {
       id: Date.now().toString(36) + Math.random().toString(36).substr(2),
       name,
       description,
       clipIds: [],
-      notes: '',
+      notes,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -820,7 +820,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: true, projectSet });
           break;
         case 'createProjectSet':
-          const newSet = await ProjectSetManager.create(request.name, request.description);
+          const newSet = await ProjectSetManager.create(request.name, request.description, request.notes);
           sendResponse({ success: true, projectSet: newSet });
           break;
         case 'updateProjectSet':

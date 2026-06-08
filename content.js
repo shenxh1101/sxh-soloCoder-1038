@@ -408,11 +408,13 @@
     }
     
     if (highlight.position && highlight.position.occurrence !== undefined) {
-      const targetOccurrence = Math.min(highlight.position.occurrence, matches.length - 1);
-      return matches[targetOccurrence];
+      const targetOccurrence = highlight.position.occurrence;
+      if (targetOccurrence < matches.length) {
+        return matches[targetOccurrence];
+      }
     }
     
-    return matches[0];
+    return null;
   }
 
   function findTextNodes(searchText, contextText = null) {
@@ -454,24 +456,28 @@
         }
         
         let targetMatch = matches[0];
+        let targetIndex = 0;
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
           const selectedNode = range.commonAncestorContainer;
           const selectedText = selection.toString();
           
-          for (const match of matches) {
+          for (let i = 0; i < matches.length; i++) {
+            const match = matches[i];
             if (match.node === selectedNode || match.node.parentNode === selectedNode) {
               targetMatch = match;
+              targetIndex = i;
               break;
             }
           }
         }
 
         const context = getSurroundingText(text);
-        const position = getTextPosition(text);
+        const position = getTextPosition(text, targetIndex);
         
         const highlight = {
+          id: Date.now().toString(36) + Math.random().toString(36).substr(2),
           text: text,
           url: window.location.href,
           color: color,

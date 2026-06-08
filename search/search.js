@@ -40,13 +40,15 @@ function init() {
 
 async function loadData() {
   try {
-    const response = await sendMessage('getClips');
-    if (response.success) {
-      allClips = response.clips;
+    const clipsResponse = await sendMessage('getClips');
+    if (clipsResponse.success) {
+      allClips = clipsResponse.clips;
       filteredClips = [...allClips];
       renderFilters();
       renderClips();
     }
+    
+    await loadProjectSets();
   } catch (e) {
     console.error('Load data error:', e);
     showToast('加载数据失败', 'error');
@@ -609,8 +611,13 @@ function renderProjectClipsList(projectSet) {
         });
         if (response.success) {
           currentProjectSet = response.projectSet;
+          const projectIndex = projectSets.findIndex(s => s.id === currentProjectSet.id);
+          if (projectIndex !== -1) {
+            projectSets[projectIndex] = currentProjectSet;
+          }
           document.getElementById('project-detail-count').textContent = currentProjectSet.clipIds.length;
           renderProjectClipsList(currentProjectSet);
+          renderProjectSets();
           showToast('已移除资料', 'success');
         }
       } catch (e) {
@@ -632,12 +639,17 @@ async function saveProjectSet() {
         updates: data
       });
       if (response.success) {
+        currentProjectSet = response.projectSet;
+        const projectIndex = projectSets.findIndex(s => s.id === currentProjectSet.id);
+        if (projectIndex !== -1) {
+          projectSets[projectIndex] = currentProjectSet;
+        }
         showToast('项目集已更新', 'success');
         closeModals();
         await loadProjectSets();
-        if (currentProjectSet && currentProjectSet.id === response.projectSet.id) {
-          openProjectSet(response.projectSet);
-        }
+        document.getElementById('project-detail-title').textContent = currentProjectSet.name;
+        document.getElementById('project-detail-notes').textContent = currentProjectSet.notes || '暂无备注';
+        document.getElementById('project-detail-count').textContent = currentProjectSet.clipIds.length;
       }
     } else {
       const response = await sendMessage('createProjectSet', data);
@@ -730,6 +742,11 @@ async function addClipsToProject(projectId, clipIds) {
       clipIds
     });
     if (response.success) {
+      const updatedProject = response.projectSet;
+      const projectIndex = projectSets.findIndex(s => s.id === projectId);
+      if (projectIndex !== -1) {
+        projectSets[projectIndex] = updatedProject;
+      }
       const project = projectSets.find(s => s.id === projectId);
       showToast(`已添加到「${project?.name || '项目集'}」`, 'success');
       closeModals();
@@ -751,7 +768,12 @@ async function reorderProjectClips(newOrder) {
     });
     if (response.success) {
       currentProjectSet = response.projectSet;
+      const projectIndex = projectSets.findIndex(s => s.id === currentProjectSet.id);
+      if (projectIndex !== -1) {
+        projectSets[projectIndex] = currentProjectSet;
+      }
       renderProjectClipsList(currentProjectSet);
+      renderProjectSets();
     }
   } catch (e) {
     console.error('Reorder clips error:', e);

@@ -682,8 +682,7 @@ function closeDetailModal() {
 function renderDetailBody(clip, isEditing) {
   const body = document.getElementById('detail-body');
   const title = document.getElementById('detail-title');
-  const sourceInfo = CitationManager ? CitationManager.getSourceInfo(clip) : extractDomain(clip.url);
-  const domain = sourceInfo.domain || extractDomain(clip.url);
+  const domain = extractDomain(clip.url);
   
   title.textContent = isEditing ? '编辑资料' : '资料详情';
   
