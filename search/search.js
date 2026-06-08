@@ -163,7 +163,7 @@ function setupDetailPanel() {
     }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && document.getElementById('detail-modal').style.display === 'flex') {
+    if (e.key === 'Escape' && document.getElementById('detail-modal').classList.contains('show')) {
       closeDetailModal();
     }
   });
@@ -175,12 +175,12 @@ function showClipDetail(clip) {
   const modal = document.getElementById('detail-modal');
 
   renderDetailBody(clip, false);
-  modal.style.display = 'flex';
+  modal.classList.add('show');
 }
 
 function closeDetailModal() {
   const modal = document.getElementById('detail-modal');
-  modal.style.display = 'none';
+  modal.classList.remove('show');
   currentDetailClip = null;
   detailEditMode = false;
 }
@@ -375,11 +375,19 @@ async function saveDetailEdits() {
 
     if (response.success) {
       currentDetailClip = response.clip;
+      
+      const clipIndex = allClips.findIndex(c => c.id === currentDetailClip.id);
+      if (clipIndex !== -1) {
+        allClips[clipIndex] = currentDetailClip;
+      }
+      
       detailEditMode = false;
       renderDetailBody(currentDetailClip, false);
       showToast('已保存修改', 'success');
 
-      await loadData();
+      applyFilters();
+      renderFilters();
+      renderClips();
     }
   } catch (e) {
     console.error('Save detail edits error:', e);
@@ -1488,6 +1496,7 @@ function copyMarkdown() {
 function closeModals() {
   document.querySelectorAll('.modal, .detail-modal').forEach(modal => {
     modal.style.display = 'none';
+    modal.classList.remove('show');
   });
 }
 

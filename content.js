@@ -134,30 +134,41 @@
     
     const range = currentSelection.range;
     const text = currentSelection.text;
+    const selectedNode = range.commonAncestorContainer;
+    
+    const matches = findTextNodes(text);
+    let targetIndex = 0;
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      if (match.node === selectedNode || match.node.parentNode === selectedNode) {
+        targetIndex = i;
+        break;
+      }
+    }
+    
+    const context = getSurroundingText(text);
+    const position = getTextPosition(text, targetIndex);
+    
+    const highlight = {
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+      text: text,
+      url: window.location.href,
+      color: highlightColor,
+      context: context,
+      position: position
+    };
+    
     const span = document.createElement('span');
     span.className = HIGHLIGHT_CLASS;
     span.style.backgroundColor = highlightColor;
     span.dataset.kvHighlight = 'true';
     span.dataset.kvText = text;
+    span.dataset.kvHighlightId = highlight.id;
     
     try {
       range.surroundContents(span);
       
-      const context = getSurroundingText(text);
-      const position = getTextPosition(text);
-      
-      const highlight = {
-        text: text,
-        url: window.location.href,
-        color: highlightColor,
-        context: context,
-        position: position
-      };
-      
-      const saved = await sendMessage('saveHighlight', { highlight });
-      if (saved && saved.highlight) {
-        span.dataset.kvHighlightId = saved.highlight.id;
-      }
+      await sendMessage('saveHighlight', { highlight });
       
       showToast('已高亮（已保存）');
       hideFloatingButton();
