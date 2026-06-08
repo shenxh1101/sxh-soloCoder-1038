@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Vault - 智能搜索</title>
+  <link rel="stylesheet" href="search.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-left">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        <h1>Knowledge Vault</h1>
+        <span class="subtitle">知识库搜索</span>
+      </div>
+      <div class="header-right">
+        <button class="btn-outline" id="btn-back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+          返回
+        </button>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <aside class="sidebar">
+        <div class="search-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input type="text" id="search-input" placeholder="搜索关键词..." class="search-input">
+        </div>
+
+        <div class="filters">
+          <div class="filter-section">
+            <h3>按标签筛选</h3>
+            <div class="tags-filter" id="tags-filter"></div>
+          </div>
+
+          <div class="filter-section">
+            <h3>按来源筛选</h3>
+            <div class="sources-filter" id="sources-filter"></div>
+          </div>
+
+          <div class="filter-section">
+            <h3>按时间筛选</h3>
+            <div class="date-filter">
+              <div class="date-input-group">
+                <label>开始日期</label>
+                <input type="date" id="date-start" class="input">
+              </div>
+              <div class="date-input-group">
+                <label>结束日期</label>
+                <input type="date" id="date-end" class="input">
+              </div>
+              <div class="date-presets">
+                <button class="preset-btn" data-days="7">最近7天</button>
+                <button class="preset-btn" data-days="30">最近30天</button>
+                <button class="preset-btn" data-days="90">最近90天</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="filter-section">
+            <h3>按可信度筛选</h3>
+            <div class="credibility-filter">
+              <label class="checkbox-item">
+                <input type="checkbox" value="high" class="credibility-checkbox">
+                <span class="credibility-badge credibility-high">高可信度</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="neutral" class="credibility-checkbox">
+                <span class="credibility-badge credibility-neutral">一般</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="low" class="credibility-checkbox">
+                <span class="credibility-badge credibility-low">待验证</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="unreliable" class="credibility-checkbox">
+                <span class="credibility-badge credibility-unreliable">不可靠</span>
+              </label>
+            </div>
+          </div>
+
+          <button class="btn-reset" id="btn-reset-filters">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </svg>
+            重置筛选
+          </button>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div class="content-header">
+          <div class="results-info">
+            <span id="results-count">0</span> 条结果
+            <span id="active-filters" class="active-filters"></span>
+          </div>
+          <div class="content-actions">
+            <button class="btn-outline" id="btn-select-all">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <polyline points="9 11 12 14 22 4"/>
+              </svg>
+              全选
+            </button>
+            <button class="btn-primary" id="btn-create-outline" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+              整理提纲
+            </button>
+          </div>
+        </div>
+
+        <div class="clips-grid" id="clips-grid"></div>
+
+        <div class="empty-state" id="empty-state" style="display: none;">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+          <h3>没有找到匹配的内容</h3>
+          <p>尝试调整搜索关键词或筛选条件</p>
+        </div>
+      </main>
+    </div>
+
+    <div class="modal" id="outline-modal" style="display: none;">
+      <div class="modal-backdrop" data-close="modal"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>整理提纲</h2>
+          <button class="icon-btn" data-close="modal">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>提纲标题</label>
+            <input type="text" id="outline-title" placeholder="输入提纲标题..." class="input">
+          </div>
+          <div class="outline-items" id="outline-items">
+            <p class="hint">拖拽调整顺序，点击移除不想要的条目</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" data-close="modal">取消</button>
+          <button class="btn-primary" id="btn-generate-markdown">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            生成 Markdown
+          </button>
+          <button class="btn-primary" id="btn-save-outline">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            保存提纲
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="markdown-modal" style="display: none;">
+      <div class="modal-backdrop" data-close="modal"></div>
+      <div class="modal-content large">
+        <div class="modal-header">
+          <h2>Markdown 预览</h2>
+          <button class="icon-btn" data-close="modal">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="markdown-preview" id="markdown-preview"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" data-close="modal">关闭</button>
+          <button class="btn-primary" id="btn-copy-markdown">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            复制 Markdown
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="search.js"></script>
+</body>
+</html>

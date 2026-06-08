@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "Knowledge Vault - 知识管理助手",
+  "version": "1.0.0",
+  "description": "研究人员和内容策划的网页知识收集工具，支持剪藏、标签、引用卡片、稍后阅读和智能搜索",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "tabs",
+    "contextMenus",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Knowledge Vault",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidebar/sidebar.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["sidebar/sidebar.html", "search/search.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "save-clip": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "一键剪藏当前页面"
+    },
+    "toggle-sidebar": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "切换侧边栏"
+    },
+    "read-later": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+R",
+        "mac": "Command+Shift+R"
+      },
+      "description": "添加到稍后阅读"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

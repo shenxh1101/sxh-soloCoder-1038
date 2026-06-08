@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Vault - 知识管理助手</title>
+  <link rel="stylesheet" href="sidebar.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        <h1>Knowledge Vault</h1>
+      </div>
+      <button class="icon-btn" id="open-search" title="打开搜索页">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+      </button>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="clip">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        剪藏
+      </button>
+      <button class="tab-btn" data-tab="tags">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        标签
+      </button>
+      <button class="tab-btn" data-tab="citation">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        引用
+      </button>
+      <button class="tab-btn" data-tab="read-later">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        稍后读
+      </button>
+      <button class="tab-btn" data-tab="recent">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 20v-6l-2 2"/>
+          <path d="M20 10A8 8 0 1 0 4.93 18.36"/>
+        </svg>
+        最近
+      </button>
+    </nav>
+
+    <main class="content">
+      <section class="tab-panel active" id="tab-clip">
+        <div class="clip-panel">
+          <div class="quick-actions">
+            <button class="action-btn primary" id="btn-save-page">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+              保存当前页面
+            </button>
+            <button class="action-btn secondary" id="btn-capture">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              截图
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label>标题</label>
+            <input type="text" id="clip-title" placeholder="输入标题..." class="input">
+          </div>
+
+          <div class="form-group">
+            <label>链接</label>
+            <div class="input-group">
+              <input type="url" id="clip-url" placeholder="https://..." class="input" readonly>
+              <button class="icon-btn small" id="btn-copy-url" title="复制链接">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>选中文本</label>
+            <textarea id="clip-content" placeholder="选中页面文本会自动填充..." rows="4" class="textarea"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>个人批注</label>
+            <textarea id="clip-notes" placeholder="添加你的想法和批注..." rows="3" class="textarea"></textarea>
+          </div>
+
+          <div class="screenshot-preview" id="screenshot-preview" style="display: none;">
+            <img id="screenshot-img" alt="截图预览">
+            <button class="icon-btn remove-btn" id="btn-remove-screenshot" title="移除截图">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>标签</label>
+              <div class="tags-input" id="tags-input">
+                <div class="tags-list" id="tags-list"></div>
+                <input type="text" id="new-tag-input" placeholder="输入标签后回车..." class="tag-input">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>可信度</label>
+              <select id="clip-credibility" class="select">
+                <option value="high">高可信度</option>
+                <option value="neutral" selected>一般</option>
+                <option value="low">待验证</option>
+                <option value="unreliable">不可靠</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>主题归档</label>
+              <select id="clip-topic" class="select">
+                <option value="">未分类</option>
+                <option value="research">学术研究</option>
+                <option value="news">新闻资讯</option>
+                <option value="tech">技术资料</option>
+                <option value="creative">创意灵感</option>
+                <option value="personal">个人笔记</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="enable-review">
+              设置复习提醒
+            </label>
+            <input type="datetime-local" id="review-time" class="input" style="display: none; margin-top: 8px;">
+          </div>
+
+          <button class="btn-save" id="btn-save-clip">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            保存到知识库
+          </button>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-tags">
+        <div class="tags-panel">
+          <div class="panel-header">
+            <h3>标签管理</h3>
+            <input type="text" id="tag-search" placeholder="搜索标签..." class="input small">
+          </div>
+          <div class="tags-cloud" id="tags-cloud"></div>
+          <div class="tagged-clips" id="tagged-clips" style="display: none;">
+            <h4 id="selected-tag-title"></h4>
+            <div class="clips-list" id="tagged-clips-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-citation">
+        <div class="citation-panel">
+          <div class="panel-header">
+            <h3>引用卡片</h3>
+          </div>
+          <div class="clip-selector">
+            <label>选择资料</label>
+            <select id="citation-clip-select" class="select">
+              <option value="">请选择剪藏资料...</option>
+            </select>
+          </div>
+          
+          <div class="citation-card" id="citation-card" style="display: none;">
+            <div class="citation-summary">
+              <h4>内容摘要</h4>
+              <p id="citation-summary-text"></p>
+            </div>
+            
+            <div class="citation-source">
+              <h4>出处信息</h4>
+              <div class="source-info">
+                <div class="source-item">
+                  <span class="label">作者：</span>
+                  <span id="source-author"></span>
+                </div>
+                <div class="source-item">
+                  <span class="label">来源：</span>
+                  <span id="source-domain"></span>
+                </div>
+                <div class="source-item">
+                  <span class="label">发布时间：</span>
+                  <span id="source-date"></span>
+                </div>
+                <div class="source-item">
+                  <span class="label">链接：</span>
+                  <a id="source-url" href="#" target="_blank"></a>
+                </div>
+              </div>
+            </div>
+
+            <div class="citation-format">
+              <h4>引用格式</h4>
+              <div class="format-tabs">
+                <button class="format-tab active" data-format="apa">APA</button>
+                <button class="format-tab" data-format="mla">MLA</button>
+                <button class="format-tab" data-format="chicago">Chicago</button>
+                <button class="format-tab" data-format="gb7714">GB/T 7714</button>
+              </div>
+              <div class="citation-text">
+                <code id="citation-text"></code>
+                <button class="icon-btn" id="btn-copy-citation" title="复制引用">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-read-later">
+        <div class="read-later-panel">
+          <div class="panel-header">
+            <h3>稍后阅读</h3>
+            <span class="badge" id="read-later-count">0</span>
+          </div>
+          <div class="clips-list" id="read-later-list"></div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-recent">
+        <div class="recent-panel">
+          <div class="panel-header">
+            <h3>最近剪藏</h3>
+          </div>
+          <div class="clips-list" id="recent-clips-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>
